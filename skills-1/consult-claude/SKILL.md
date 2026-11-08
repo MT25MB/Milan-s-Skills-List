@@ -1,0 +1,75 @@
+---
+name: consult-claude
+description: "Consult Claude Code for second opinions, brainstorming, or difficult debugging from Codex. Use when the user asks to \"consult claude\", \"ask claude\", \"get claude's opinion\", \"brainstorm with claude\", or \"discuss with claude\"."
+---
+
+# Consult Claude
+
+Use Claude Code as an external collaborator from Codex, in a conversational and exploratory exchange.
+
+## Step 1: Define the Question
+
+State:
+
+- What problem needs input
+- What has already been tried
+- What constraints the answer must respect
+- What files, commands, plans, or error messages matter
+- What kind of answer is useful: hypotheses, tradeoffs, concrete fix, or review
+
+When Claude must judge claims against a source, state whether the material provided is the complete source or an excerpt. When a verdict can turn on something being absent, provide the complete relevant sections: given an excerpt, Claude reports what the excerpt leaves out as unverifiable or missing. Pass the complete source, or its path for Claude to read, whenever it fits. When an excerpt is unavoidable, confirm before sending it that every passage the claims under judgment rest on made it into the material provided.
+
+When the consultation concerns an artifact Claude can inspect itself, pass its path and let Claude choose how to inspect it, rather than attaching excerpts or other material extracted from it.
+
+When a recommendation is wanted, bar answers that appeal to scope: state that "out of scope" or "leave it alone" is not an acceptable argument on its own, and that recommending no change must be justified on technical merit. Demand one pick per decision, the reasoning, and the strongest counterargument to that pick, with hedging across options ruled out. When the question lists options, state that the pick may be a named alternative outside the list when it is sounder than every listed option.
+
+When the consultation runs until Claude approves, fix the line that ends every response: require every response to end with exactly one fixed line stating the verdict, in a designated positive or negative form, carrying nothing else, and require the response to state before that line what the verdict rests on: the artifacts, sources, and checks inspected. Stop consulting when that line reaches the positive form with that evidence stated, so a politely worded answer does not end the consultation early and agreement does not go unrecognized. Pair it with a compact output contract demanding that each finding ship a ready-to-paste replacement rather than an instruction, which keeps a round cheap enough to iterate.
+
+When the consultation is a prose rewrite bound by a house style, name the shapes that style forbids in the first prompt, so they do not have to be corrected across follow-up turns. Common ones: prefixing a summary with a grammatical subject the convention omits, expanding a pronoun to its full noun phrase at every occurrence, and splitting a sentence so a condition is restated in both halves.
+
+## Step 2: Run `$claude-print` Skill
+
+Run the `$claude-print` skill with the assembled question. Default to read-only permissions.
+
+For follow-up questions, include Claude's previous answer and the new evidence gathered since then. When the consultation runs until Claude approves, open each follow-up by listing what was already applied, so Claude judges the current state rather than re-reporting findings that are already fixed. When a positive verdict arrives without stating what it rests on, follow up to ask what was inspected and to inspect anything the verdict depends on that it has not yet checked, then apply the same stopping rule to the verdict that follows. Cap the consultation at five turns, counting the initial request. When the fifth verdict is not a positive verdict that states its evidence, carry the outstanding findings into Step 3 as unresolved and state that the consultation ended without approval.
+
+When the recommendation would violate a documented constraint, follow up rather than discarding or adopting it. Quote the constraint back and ask Claude to argue it out: whether the constraint is sound or was set without the problem Claude identified in view, whether that problem is reachable given code Claude may not have accounted for, and what the best fix that respects the constraint is. Ask it to quantify the exposure rather than assert it, and say that reversing its prior recommendation is acceptable.
+
+When the recommendation is conditional on a check not yet run that this session can run, run it before refining anything that depends on it, and open any follow-up with its result.
+
+When Claude marks a point as not verifiable from the material provided, check the complete source before following up, and quote the passage that settles it in the follow-up rather than arguing the point. When no passage settles it, the point stands.
+
+## Step 3: Synthesize
+
+Summarize the useful parts of Claude's response. Cross-reference suggestions with the repository before acting.
+
+When the output holds a question put to you rather than an answer, Claude stopped for input: re-issue the request with that question answered inline and the original output contract restated, rather than synthesizing the question as though it were the answer.
+
+When the consultation rewrote prose rather than answering a question, check the rewrite against the source yourself before adopting it. Treat its own report that the rewrite is faithful as a claim awaiting verification. Verify the source's own factual claims against what they describe, since a rewrite can be faithful to a source that was itself wrong. Read for these drift shapes in the rewrite:
+
+- a tense change that promotes a capability into an event
+- a compression that promotes a hedge into a fact, or flattens out the reasoning that made a sentence worth keeping
+- a rule promoted into an enforcement claim
+- a narrowing that recasts an absence of information as a limitation of what it describes
+- a figure or claim re-attributed to a different subject than the source gave it, the predicate left intact
+- a claim with no counterpart in the source, asserted as if it were there
+- an inverted direction in a described mapping
+- a term renamed in prose, drifting from the identifier it documents
+- a precise word swapped for a vaguer one, or a dropped modifier that carried the argument
+- dropped markup or function words, articles included
+- a split that separates clauses whose relationship is the point
+- a split that strands a pronoun on the wrong noun
+
+Take the plainer sentences and keep the load-bearing why.
+
+Check separately whether the supporting material in a proposed replacement is already in use. The consultation sees only the files and excerpts the prompt showed it, so a replacement that introduces new material such as a citation, an example, or a quotation can reuse something the document already relies on elsewhere. Search the whole target document for that material before adopting it, and either discard the replacement or mark the reuse in the text.
+
+When an adopted pick's strongest counterargument names a case the pick leaves uncovered, record that case as a known limit of the pick wherever the pick is recorded in a plan or another artifact that governs the work.
+
+When the consultation was opened from a pending question, resolve that question with the answer in hand, re-asking the user when the choice stays theirs. Then call `update_plan` to mark this step completed and continue with the next step of the active workflow.
+
+## Rules
+
+- Claude's answer is advisory.
+- Do not apply a suggestion until it has been checked against the actual codebase.
+- Keep each Claude turn focused on one question.
